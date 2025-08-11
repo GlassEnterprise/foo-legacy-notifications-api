@@ -1,0 +1,151 @@
+openapi: 3.0.3
+info:
+  title: Notification Service API
+  version: 1.2.7
+  description: |
+    API for sending and managing notifications in the RetailX platform.
+    This service is responsible for delivering order updates, promotions, and alerts to customers and staff.
+    
+    # Legacy Notice
+    This API is part of the legacy notification infrastructure and is scheduled for migration to the new RetailX Messaging Hub (see TODOs below).
+    
+    # TODOs
+    - [ ] Migrate notification types to support in-app messaging (see RETAILX-1234)
+    - [ ] Add support for multi-language templates (see RETAILX-5678)
+    - [ ] Deprecate SMS notifications in favor of push (see RETAILX-9101)
+    - [ ] Audit notification delivery tracking (see RETAILX-1121)
+    
+    For more information, contact the RetailX Platform Team.
+servers:
+  - url: https://api.notification-service.com/v1
+paths:
+  /notifications:
+    post:
+      summary: Send a notification
+      description: |
+        Sends a notification to a customer or staff member. Used for order status updates, promotional offers, and critical alerts.
+        
+        # Legacy Behavior
+        - Only supports plain text messages (no rich content)
+        - Rate limiting is enforced per recipient (see RETAILX-9988)
+        
+        # TODO
+        - [ ] Add support for scheduled notifications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+      responses:
+        '201':
+          description: Notification sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        '429':
+          description: Too many requests (rate limit exceeded)
+    get:
+      summary: List sent notifications
+      description: |
+        Retrieves a list of notifications sent by the system. Supports filtering by status.
+        
+        # Legacy Behavior
+        - Pagination is not supported (see RETAILX-2233)
+        - Only returns notifications from the last 30 days
+        
+        # TODO
+        - [ ] Implement pagination
+        - [ ] Add filtering by recipient
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, sent, failed]
+          description: Filter notifications by status (legacy values only)
+      responses:
+        '200':
+          description: List of notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotificationResponse'
+  /notifications/{notificationId}:
+    get:
+      summary: Get notification status
+      description: |
+        Retrieves the status of a specific notification by its ID.
+        
+        # Legacy Behavior
+        - Status values are limited to pending, sent, or failed
+        - No retry information is available
+        
+        # TODO
+        - [ ] Add delivery attempt history
+      parameters:
+        - in: path
+          name: notificationId
+          required: true
+          schema:
+            type: string
+          description: Unique identifier for the notification
+      responses:
+        '200':
+          description: Notification status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+components:
+  schemas:
+    NotificationRequest:
+      type: object
+      required:
+        - recipient
+        - message
+      properties:
+        recipient:
+          type: string
+          description: |
+            Recipient identifier (email, phone, or staff ID).
+            # Legacy: Only email and phone are supported. Staff ID support is planned (RETAILX-3344).
+        message:
+          type: string
+          description: |
+            Notification message content.
+            # Legacy: Only plain text supported. No HTML or markdown.
+        type:
+          type: string
+          description: |
+            Type of notification (email, sms, push).
+            # Legacy: Only email and sms are supported. Push is experimental (RETAILX-4455).
+          enum: [email, sms, push]
+    NotificationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique notification ID (UUID v4)
+        recipient:
+          type: string
+          description: Recipient identifier
+        message:
+          type: string
+          description: Notification message content
+        type:
+          type: string
+          description: Type of notification
+        status:
+          type: string
+          description: |
+            Status of the notification.
+            # Legacy: Only pending, sent, and failed are supported.
+          enum: [pending, sent, failed]
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the notification was created (ISO 8601)
